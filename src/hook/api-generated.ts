@@ -153,8 +153,11 @@ export interface UpdateSettingsDto {
 }
 
 export interface CreateDeviceDto {
-  /** @example "Ruangan Telematika" */
-  room_name: string;
+  /**
+   * Door the smart lock is installed on
+   * @format uuid
+   */
+  door_id: string;
   /** @example "tuya-device-id" */
   tuya_device_id: string;
   /** @default 7 */
@@ -162,9 +165,82 @@ export interface CreateDeviceDto {
 }
 
 export interface UpdateDeviceDto {
-  room_name?: string;
+  /** @format uuid */
+  door_id?: string;
   tuya_device_id?: string;
   pin_length?: 6 | 7;
+  is_active?: boolean;
+}
+
+export interface CreateBuildingDto {
+  /** @example "Gedung Utama" */
+  name: string;
+  /** @example "GEDUNG-UTAMA" */
+  code: string;
+  /** @example "Jl. Ciledug Raya, Jakarta Selatan" */
+  address?: string;
+}
+
+export interface UpdateBuildingDto {
+  /** @example "Gedung Utama" */
+  name?: string;
+  /** @example "GEDUNG-UTAMA" */
+  code?: string;
+  /** @example "Jl. Ciledug Raya, Jakarta Selatan" */
+  address?: string;
+  /** @example true */
+  is_active?: boolean;
+}
+
+export interface CreateFloorDto {
+  /** @example "Lantai 2" */
+  name: string;
+  /** @example 2 */
+  floor_number?: number;
+}
+
+export interface UpdateFloorDto {
+  /** @example "Lantai 2" */
+  name?: string;
+  /** @example 2 */
+  floor_number?: number;
+  /** @example true */
+  is_active?: boolean;
+}
+
+export interface CreateRoomDto {
+  /** @example "Ruang Telematika" */
+  name: string;
+  /** @example "TEL-201" */
+  code?: string;
+  /** @example "Ruang server dan operasional jaringan" */
+  description?: string;
+}
+
+export interface UpdateRoomDto {
+  /** @example "Ruang Telematika" */
+  name?: string;
+  /** @example "TEL-201" */
+  code?: string;
+  /** @example "Ruang server dan operasional jaringan" */
+  description?: string;
+  /** @example true */
+  is_active?: boolean;
+}
+
+export interface CreateDoorDto {
+  /** @example "Pintu Utama" */
+  name: string;
+  /** @example "TEL-201-IN" */
+  code?: string;
+}
+
+export interface UpdateDoorDto {
+  /** @example "Pintu Utama" */
+  name?: string;
+  /** @example "TEL-201-IN" */
+  code?: string;
+  /** @example true */
   is_active?: boolean;
 }
 
@@ -1017,6 +1093,214 @@ export class Api<
     ) =>
       this.request<void, any>({
         path: `/api/v1/devices/${id}`,
+        method: "PATCH",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+  };
+  locations = {
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerVisitOptions
+     * @summary List active visitor-access locations
+     * @request GET:/api/v1/locations/visit-options
+     */
+    locationsControllerVisitOptions: (params: RequestParams = {}) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/visit-options`,
+        method: "GET",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerFindAll
+     * @summary List buildings, floors, rooms, doors, and assigned locks
+     * @request GET:/api/v1/locations
+     * @secure
+     */
+    locationsControllerFindAll: (params: RequestParams = {}) =>
+      this.request<void, any>({
+        path: `/api/v1/locations`,
+        method: "GET",
+        secure: true,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerCreateBuilding
+     * @request POST:/api/v1/locations/buildings
+     * @secure
+     */
+    locationsControllerCreateBuilding: (
+      data: CreateBuildingDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/buildings`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerUpdateBuilding
+     * @request PATCH:/api/v1/locations/buildings/{id}
+     * @secure
+     */
+    locationsControllerUpdateBuilding: (
+      id: string,
+      data: UpdateBuildingDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/buildings/${id}`,
+        method: "PATCH",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerCreateFloor
+     * @request POST:/api/v1/locations/buildings/{buildingId}/floors
+     * @secure
+     */
+    locationsControllerCreateFloor: (
+      buildingId: string,
+      data: CreateFloorDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/buildings/${buildingId}/floors`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerUpdateFloor
+     * @request PATCH:/api/v1/locations/floors/{id}
+     * @secure
+     */
+    locationsControllerUpdateFloor: (
+      id: string,
+      data: UpdateFloorDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/floors/${id}`,
+        method: "PATCH",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerCreateRoom
+     * @request POST:/api/v1/locations/floors/{floorId}/rooms
+     * @secure
+     */
+    locationsControllerCreateRoom: (
+      floorId: string,
+      data: CreateRoomDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/floors/${floorId}/rooms`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerUpdateRoom
+     * @request PATCH:/api/v1/locations/rooms/{id}
+     * @secure
+     */
+    locationsControllerUpdateRoom: (
+      id: string,
+      data: UpdateRoomDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/rooms/${id}`,
+        method: "PATCH",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerCreateDoor
+     * @request POST:/api/v1/locations/rooms/{roomId}/doors
+     * @secure
+     */
+    locationsControllerCreateDoor: (
+      roomId: string,
+      data: CreateDoorDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/rooms/${roomId}/doors`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Locations
+     * @name LocationsControllerUpdateDoor
+     * @request PATCH:/api/v1/locations/doors/{id}
+     * @secure
+     */
+    locationsControllerUpdateDoor: (
+      id: string,
+      data: UpdateDoorDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, any>({
+        path: `/api/v1/locations/doors/${id}`,
         method: "PATCH",
         body: data,
         secure: true,

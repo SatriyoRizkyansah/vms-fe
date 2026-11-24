@@ -30,7 +30,19 @@ export type VisitRecord = {
   rejection_reason?: string | null;
   provisioning_error?: string | null;
   pic?: { id: string; full_name: string; email?: string };
-  room?: { id: string; room_name: string; connection_status: string; battery_level?: number | null };
+  room?: {
+    id: string;
+    room_name: string;
+    connection_status: string;
+    battery_level?: number | null;
+    door?: {
+      name: string;
+      room?: {
+        name: string;
+        floor?: { name: string; building?: { name: string } | null } | null;
+      } | null;
+    } | null;
+  } | null;
   credential?: { pin_code_masked?: string; effective_from?: string; effective_until?: string; is_revoked?: boolean } | null;
 };
 
@@ -53,16 +65,16 @@ export const statusLabels: Record<VisitStatus, string> = {
   EXPIRED: "Kedaluwarsa",
 };
 
-export const statusClasses: Record<VisitStatus, string> = {
-  PENDING_APPROVAL: "border-amber-200 bg-amber-50 text-amber-800",
-  APPROVED: "border-sky-200 bg-sky-50 text-sky-800",
-  PROVISIONED: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  OFFLINE_FALLBACK: "border-orange-200 bg-orange-50 text-orange-800",
-  CHECKED_IN: "border-teal-200 bg-teal-50 text-teal-800",
-  REJECTED: "border-rose-200 bg-rose-50 text-rose-800",
-  COMPLETED: "border-slate-200 bg-slate-100 text-slate-700",
-  REVOKED: "border-slate-200 bg-slate-100 text-slate-700",
-  EXPIRED: "border-slate-200 bg-slate-100 text-slate-600",
+export const statusVariants: Record<VisitStatus, "default" | "secondary" | "outline" | "destructive"> = {
+  PENDING_APPROVAL: "secondary",
+  APPROVED: "outline",
+  PROVISIONED: "default",
+  OFFLINE_FALLBACK: "outline",
+  CHECKED_IN: "default",
+  REJECTED: "destructive",
+  COMPLETED: "secondary",
+  REVOKED: "secondary",
+  EXPIRED: "outline",
 };
 
 const jakartaDate = (options: Intl.DateTimeFormatOptions) =>
