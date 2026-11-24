@@ -1,7 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable react-hooks/refs */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Signal, signal as createSignal, computed as createComputed, batch, effect } from "@Signal/signal";
 

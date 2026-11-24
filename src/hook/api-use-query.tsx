@@ -1,66 +1,66 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, type DependencyList } from "react";
 import network_cache from "./api-cache";
 import { show_alert_snackbar } from "@Signal/use-signal/snackbar_signal";
 import { auth_signal } from "@Signal/use-signal/auth-init-signal";
 import { Api } from "@Hooks/api-generated";
 import { parseApiError } from "src/common/api-error-handler";
+import { unwrapApiResponse } from "@/common/api-response";
 import { close_loading, show_loading } from "@Signal/use-signal/loading-method-signal";
 // import { useSignalValue, useSignal } from "@Signal/hooks";
 import { useSignalValue, useSignal } from "@Signal/hooks";
 export class UseQueryReturnType<
-  Tags extends keyof Api,
-  Method extends keyof Api[Tags],
-  Data extends Api[Tags][Method] extends (...args: any) => any
+  Tags extends keyof Api<unknown>,
+  Method extends keyof Api<unknown>[Tags],
+  Data extends Api<unknown>[Tags][Method] extends (...args: any) => any
     ? // @ts-ignore
-      AsyncReturnType<Api[Tags][Method]>["data"]
-    : Api[Tags][Method],
+      AsyncReturnType<Api<unknown>[Tags][Method]>["data"]
+    : Api<unknown>[Tags][Method],
 > {
   is_loading: boolean;
   response: Data | null;
   error: any | null;
-  params: Api[Tags][Method] extends (...args: any) => any ? Parameters<Api[Tags][Method]> : Api[Tags][Method];
+  params: Api<unknown>[Tags][Method] extends (...args: any) => any ? Parameters<Api<unknown>[Tags][Method]> : Api<unknown>[Tags][Method];
   call_back: () => void;
   symbol: string;
 }
 
-export class UseQueryParams<Tags extends keyof Api, Method extends keyof Api[Tags]> {
+export class UseQueryParams<Tags extends keyof Api<unknown>, Method extends keyof Api<unknown>[Tags]> {
   api_tag: Tags;
   api_method: Method;
-  api_query: Api[Tags][Method] extends (...args: any) => any ? Parameters<Api[Tags][Method]> : Api[Tags][Method];
+  api_query: Api<unknown>[Tags][Method] extends (...args: any) => any ? Parameters<Api<unknown>[Tags][Method]> : Api<unknown>[Tags][Method];
   re_render_dependencies?: DependencyList;
   should_running_if?: boolean;
+  is_public?: boolean;
   options?: {
     should_disable_error_message?: boolean;
     should_use_global_loading_overlay?: boolean;
     will_exec_after_success?: (
-      res: Api[Tags][Method] extends (...args: any) => any
+      res: Api<unknown>[Tags][Method] extends (...args: any) => any
         ? // @ts-ignore
-          AsyncReturnType<Api[Tags][Method]>["data"]
-        : Api[Tags][Method],
+          AsyncReturnType<Api<unknown>[Tags][Method]>["data"]
+        : Api<unknown>[Tags][Method],
     ) => void;
     will_exec_after_error?: (error: any) => void;
   };
 }
 
 export default function use_query<
-  Tags extends keyof Api,
-  Method extends keyof Api[Tags],
-  Data extends Api[Tags][Method] extends (...args: any) => any
+  Tags extends keyof Api<unknown>,
+  Method extends keyof Api<unknown>[Tags],
+  Data extends Api<unknown>[Tags][Method] extends (...args: any) => any
     ? // @ts-ignore
-      AsyncReturnType<Api[Tags][Method]>["data"]
-    : Api[Tags][Method],
+      AsyncReturnType<Api<unknown>[Tags][Method]>["data"]
+    : Api<unknown>[Tags][Method],
 >(props: UseQueryParams<Tags, Method>): UseQueryReturnType<Tags, Method, Data> {
-  const { api_tag, api_method, api_query, should_running_if = true, options } = props;
+  const { api_tag, api_method, api_query, should_running_if = true, is_public = false, options } = props;
 
   // Subscribe to auth signal so queries refetch when token/role changes
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const authState = useSignalValue(auth_signal);
   const selectedToken = authState?.selectedToken || "";
-  const isProtectedQuery = api_tag !== "auth";
+  const isProtectedQuery = !is_public;
   const canRunQuery = should_running_if && (!isProtectedQuery || Boolean(selectedToken));
 
   const tag = api_tag;
@@ -99,7 +99,7 @@ export default function use_query<
     is_loading: boolean;
     response: Data | null;
     error: any | null;
-    params: Api[Tags][Method] extends (...args: any) => any ? Parameters<Api[Tags][Method]> : Api[Tags][Method];
+    params: Api<unknown>[Tags][Method] extends (...args: any) => any ? Parameters<Api<unknown>[Tags][Method]> : Api<unknown>[Tags][Method];
   }>({
     is_loading: false,
     response: cache ? cache : null,
@@ -125,15 +125,21 @@ export default function use_query<
     setLocalState((prev) => ({ ...prev, is_loading: true, error: null }));
     if (options?.should_use_global_loading_overlay) show_loading(150);
     try {
-      const response = await call_api_endpoint(...(params as Array<any>));
-      setLocalState((prev) => ({ ...prev, response: response.data, error: null }));
-      network_cache.set(network_cache_symbol, response.data);
-      if (options?.will_exec_after_success) options.will_exec_after_success(response);
+      const response = await call_api_endpoint(...(params as Array<any>), { format: "json" });
+      const payload = unwrapApiResponse(response.data);
+      setLocalState((prev) => ({ ...prev, response: payload, error: null }));
+      network_cache.set(network_cache_symbol, payload);
+      if (options?.will_exec_after_success) options.will_exec_after_success(payload);
     } catch (error: any) {
       setLocalState((prev) => ({ ...prev, error }));
 
       // Parse error dengan safe handling
       const parsedError = await parseApiError(error);
+
+      if (parsedError.status === 401 && selectedToken) {
+        auth_signal.value = {};
+        network_cache.clear();
+      }
 
       // Hapus cache jika terjadi error
       network_cache.delete(network_cache_symbol);

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 import network_cache from "./api-cache";
 import { Api } from "@Hooks/api-generated";
 import { auth_signal } from "@Signal/use-signal/auth-init-signal";
@@ -6,6 +5,7 @@ import { set_loading_to } from "@Signal/use-signal/loading-method-signal";
 import { loading_progress_signal } from "@Signal/use-signal/loading-progress-init-signal";
 import { close_dialog } from "@Signal/use-signal/dialog-method-signal";
 import { show_alert_snackbar } from "@Signal/use-signal/snackbar_signal";
+import { getApiResponseMessage, normalizeApiResponse, type ApiResponse } from "@/common/api-response";
 
 /**
  * Generate dynamic loading label berdasarkan method name
@@ -58,16 +58,9 @@ function generateLoadingLabel(methodName: string): string {
   return "Memproses...";
 }
 
-export type UseMutationOptions<
-  Tags extends keyof Api,
-  Method extends keyof Api[Tags],
-  Data extends Api[Tags][Method] extends (...Others: any) => any
-    ? // @ts-ignore
-      AsyncReturnType<Api[Tags][Method]>
-    : Api[Tags][Method],
-> = {
+export type UseMutationOptions = {
   call_back?: () => void;
-  will_exec_after_success?: (Response: Data, Others?: Array<any>) => void;
+  will_exec_after_success?: (Response: ApiResponse<unknown>, Others?: Array<any>) => void;
   will_exec_after_error?: (Error: any, Others?: Array<any>) => void;
   should_disable_loading?: boolean;
   should_disable_success_message?: boolean;
@@ -92,31 +85,23 @@ export type UseMutationOptions<
 };
 
 export type UseMutationProps<
-  Tags extends keyof Api,
-  Method extends keyof Api[Tags],
-  Data extends Api[Tags][Method] extends (...Others: any) => any
-    ? // @ts-ignore
-      AsyncReturnType<Api[Tags][Method]>
-    : Api[Tags][Method],
+  Tags extends keyof Api<unknown>,
+  Method extends keyof Api<unknown>[Tags],
 > = {
   api_tag: Tags;
   api_method: Method;
-  options?: UseMutationOptions<Tags, Method, Data>;
+  options?: UseMutationOptions;
 };
 
 export default function use_mutation<
-  Tags extends keyof Api,
-  Method extends keyof Api[Tags],
-  Data extends Api[Tags][Method] extends (...args: any) => any
-    ? // @ts-ignore
-      AsyncReturnType<Api[Tags][Method]>
-    : Api[Tags][Method],
->({ api_tag, api_method, options }: UseMutationProps<Tags, Method, Data>) {
+  Tags extends keyof Api<unknown>,
+  Method extends keyof Api<unknown>[Tags],
+>({ api_tag, api_method, options }: UseMutationProps<Tags, Method>) {
   if (!options) options = {};
 
   if (!options.error_message_type) options.error_message_type = "toast";
 
-  async function created_mutation(Params: Api[Tags][Method] extends (...args: any) => any ? Parameters<Api[Tags][Method]> : Api[Tags][Method], Others?: Array<any>): Promise<Data | undefined> {
+  async function created_mutation(Params: Api<unknown>[Tags][Method] extends (...args: any) => any ? Parameters<Api<unknown>[Tags][Method]> : Api<unknown>[Tags][Method], Others?: Array<any>): Promise<ApiResponse<unknown> | undefined> {
     const call_api_endpoint = new Api({
       baseApiParams: {
         headers: {
@@ -134,7 +119,9 @@ export default function use_mutation<
     loading_progress_signal.value = loadingLabel;
 
     try {
-      const response_server = await call_api_endpoint(...(Params as Array<any>));
+      const response_server = await call_api_endpoint(...(Params as Array<any>), { format: "json" });
+      const api_response = response_server.data;
+      const normalized_response = normalizeApiResponse(api_response, response_server.status);
       if (!options?.should_disable_autoclose_stack) close_dialog();
       if (options?.call_back) {
         network_cache.clear();
@@ -143,15 +130,15 @@ export default function use_mutation<
         }, 10);
       }
 
-      options?.will_exec_after_success?.(response_server, Others);
+      options?.will_exec_after_success?.(normalized_response, Others);
       if (!options?.should_disable_success_message) {
         show_alert_snackbar({
-          message: options?.success_message_text ?? response_server?.data?.message ?? "Berhasil",
+          message: options?.success_message_text ?? getApiResponseMessage(normalized_response),
           severity: "success",
           anchorOrigin: { vertical: "bottom", horizontal: "center" },
         });
       }
-      return response_server;
+      return normalized_response;
     } catch (error: any) {
       // catch (error: any) {
       //   // console.log(error.error.error)

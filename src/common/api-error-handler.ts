@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Utility functions untuk handling API errors secara konsisten
  */

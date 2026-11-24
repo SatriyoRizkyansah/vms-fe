@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       host: true,
       proxy: {
         "/api": {
-          target: env.VITE_APP_ENDPOINT || "http://localhost:3001",
+          target: env.VITE_APP_ENDPOINT || "http://localhost:3000",
           changeOrigin: true,
         },
       },
