@@ -1,13 +1,6 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 export type DashboardMetric = {
   label: string;
@@ -24,9 +17,7 @@ export function SectionCards({ metrics }: { metrics: DashboardMetric[] }) {
         <Card key={label} className="@container/card bg-linear-to-t from-primary/5 to-card shadow-xs">
           <CardHeader>
             <CardDescription>{label}</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {value}
-            </CardTitle>
+            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">{value}</CardTitle>
             <CardAction>
               <Badge variant="outline" className="gap-1.5">
                 {icon}
@@ -34,9 +25,7 @@ export function SectionCards({ metrics }: { metrics: DashboardMetric[] }) {
               </Badge>
             </CardAction>
           </CardHeader>
-          <CardFooter className="text-sm text-muted-foreground">
-            {description}
-          </CardFooter>
+          <CardFooter className="text-sm text-muted-foreground">{description}</CardFooter>
         </Card>
       ))}
     </div>

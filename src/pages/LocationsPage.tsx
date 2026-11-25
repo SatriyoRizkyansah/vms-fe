@@ -1,25 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Building2,
-  DoorOpen,
-  Layers3,
-  MapPin,
-  Plus,
-  Power,
-  Smartphone,
-} from "lucide-react";
+import { Building2, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -29,24 +13,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState, FormField, PageHeading, TextInput } from "@/components/vms/primitives";
+import { LocationBrowser, type CreateLocationTarget, type LocationKind } from "@/components/locations/LocationBrowser";
 import use_mutation from "@/hook/api-use-mutation";
 import use_query from "@/hook/api-use-query";
 import { auth_signal } from "@Signal/use-signal/auth-init-signal";
 import { useSignalValue } from "@Signal/hooks";
 import type { BuildingRecord } from "@/utils/location";
 
-type CreateDialogState =
-  | { kind: "building" }
-  | { kind: "floor"; parentId: string; parentName: string }
-  | { kind: "room"; parentId: string; parentName: string }
-  | { kind: "door"; parentId: string; parentName: string };
-
 type LocationFormValues = { name: string; code: string; address: string; floor_number: string; description: string };
 
 export default function LocationsPage() {
   const auth = useSignalValue(auth_signal);
   const isAdmin = auth.user?.role === "ADMIN";
-  const [createDialog, setCreateDialog] = useState<CreateDialogState | null>(null);
+  const [createDialog, setCreateDialog] = useState<CreateLocationTarget | null>(null);
   const query = use_query({ api_tag: "locations", api_method: "locationsControllerFindAll", api_query: [] });
   const buildings = (query.response as BuildingRecord[] | null) ?? [];
 
@@ -74,99 +53,40 @@ export default function LocationsPage() {
     if (response && "statusCode" in response && typeof response.statusCode === "number" && response.statusCode < 300) setCreateDialog(null);
   }
 
+  async function updateStatus(kind: LocationKind, id: string, isActive: boolean) {
+    if (kind === "building") await updateBuilding([id, { is_active: isActive }]);
+    if (kind === "floor") await updateFloor([id, { is_active: isActive }]);
+    if (kind === "room") await updateRoom([id, { is_active: isActive }]);
+    if (kind === "door") await updateDoor([id, { is_active: isActive }]);
+  }
+
   return (
     <>
       <PageHeading
         eyebrow="Administrasi lokasi"
-        title="Gedung dan akses"
-        description="Susun lokasi VMS dari gedung, lantai, ruangan, hingga pintu dan smart lock."
+        title="Struktur lokasi"
+        description="Atur gedung, lantai, ruangan, dan pintu sebagai satu hierarki akses."
         action={isAdmin ? <Button className="gap-2" onClick={() => setCreateDialog({ kind: "building" })}><Plus className="size-4" />Tambah gedung</Button> : undefined}
       />
-
       {!isAdmin && <Alert className="mb-5"><AlertDescription>Akun Anda hanya dapat melihat lokasi. Pengelolaan lokasi dilakukan oleh administrator.</AlertDescription></Alert>}
       {query.error && <Alert variant="destructive" className="mb-5"><AlertDescription>Data lokasi belum dapat dimuat.</AlertDescription></Alert>}
-      {query.is_loading && buildings.length === 0 ? <div className="grid gap-4"><div className="h-32 animate-pulse rounded-xl bg-muted" /><div className="h-32 animate-pulse rounded-xl bg-muted" /></div> : query.error ? (
+
+      {query.is_loading && buildings.length === 0 ? (
+        <div className="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]"><div className="h-[34rem] animate-pulse rounded-xl bg-muted" /><div className="h-[34rem] animate-pulse rounded-xl bg-muted" /></div>
+      ) : query.error ? (
         <Card><EmptyState icon={<Building2 className="size-5" />} title="Lokasi belum dapat dimuat" description="Periksa koneksi API, lalu muat ulang halaman ini." /></Card>
       ) : buildings.length === 0 ? (
-        <Card>
-          <EmptyState icon={<Building2 className="size-5" />} title="Belum ada gedung" description={isAdmin ? "Mulai dengan membuat gedung, lalu tambahkan lantai, ruangan, dan pintunya." : "Administrator belum menambahkan lokasi ke VMS."} />
-        </Card>
+        <Card><EmptyState icon={<Building2 className="size-5" />} title="Belum ada gedung" description={isAdmin ? "Mulai dengan membuat gedung, lalu tambahkan lantai, ruangan, dan pintunya." : "Administrator belum menambahkan lokasi ke VMS."} /></Card>
       ) : (
-        <div className="grid gap-4">
-          {buildings.map((building) => (
-            <Card key={building.id} size="sm">
-              <CardHeader className="flex flex-row items-center justify-between gap-4 border-b pb-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-foreground"><Building2 className="size-5" /></div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2"><CardTitle>{building.name}</CardTitle><Badge variant={building.is_active ? "secondary" : "outline"}>{building.is_active ? "Aktif" : "Nonaktif"}</Badge></div>
-                    <CardDescription className="mt-1">{building.code}{building.address ? ` · ${building.address}` : ""} · {building.floors.length} lantai</CardDescription>
-                  </div>
-                </div>
-                <CardAction className="flex items-center gap-2">
-                  {isAdmin && <Button size="sm" variant="outline" disabled={!building.is_active} onClick={() => setCreateDialog({ kind: "floor", parentId: building.id, parentName: building.name })}><Plus className="size-3.5" />Tambah lantai</Button>}
-                  {isAdmin && <Button size="icon-sm" variant="ghost" aria-label={building.is_active ? "Nonaktifkan gedung" : "Aktifkan gedung"} title={building.is_active ? "Nonaktifkan gedung" : "Aktifkan gedung"} onClick={() => updateBuilding([building.id, { is_active: !building.is_active }])}><Power className="size-4" /></Button>}
-                </CardAction>
-              </CardHeader>
-              <CardContent className="grid gap-3 pt-3">
-                {building.floors.length === 0 ? <p className="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">Belum ada lantai di gedung ini.</p> : building.floors.map((floor) => {
-                  const parentActive = building.is_active && floor.is_active;
-                  return (
-                    <section key={floor.id} className="rounded-lg border bg-muted/20 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2"><Layers3 className="size-4 shrink-0 text-muted-foreground" /><h3 className="text-sm font-semibold">{floor.name}</h3>{floor.floor_number != null && <span className="text-xs text-muted-foreground">Lantai {floor.floor_number}</span>}<Badge variant={floor.is_active ? "outline" : "secondary"}>{floor.is_active ? "Aktif" : "Nonaktif"}</Badge></div>
-                        <div className="flex items-center gap-2">
-                          {isAdmin && <Button size="sm" variant="ghost" disabled={!floor.is_active && !building.is_active} onClick={() => updateFloor([floor.id, { is_active: !floor.is_active }])}>{floor.is_active ? "Nonaktifkan" : "Aktifkan"}</Button>}
-                          {isAdmin && <Button size="sm" variant="outline" disabled={!parentActive} onClick={() => setCreateDialog({ kind: "room", parentId: floor.id, parentName: `${building.name} / ${floor.name}` })}><Plus className="size-3.5" />Tambah ruangan</Button>}
-                        </div>
-                      </div>
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        {floor.rooms.map((room) => {
-                          const roomActive = parentActive && room.is_active;
-                          return (
-                            <div key={room.id} className="min-w-0 rounded-lg border bg-card p-3.5">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2"><MapPin className="size-4 text-muted-foreground" /><h4 className="truncate text-sm font-semibold">{room.name}</h4><Badge variant={room.is_active ? "secondary" : "outline"}>{room.is_active ? "Aktif" : "Nonaktif"}</Badge></div>
-                                  {room.code && <p className="ml-6 mt-1 text-xs text-muted-foreground">Kode {room.code}</p>}
-                                </div>
-                                <div className="flex shrink-0 items-center gap-1">
-                                  {isAdmin && <Button size="icon-sm" variant="ghost" aria-label={room.is_active ? "Nonaktifkan ruangan" : "Aktifkan ruangan"} disabled={!room.is_active && !parentActive} onClick={() => updateRoom([room.id, { is_active: !room.is_active }])}><Power className="size-3.5" /></Button>}
-                                  {isAdmin && <Button size="sm" variant="outline" disabled={!roomActive} onClick={() => setCreateDialog({ kind: "door", parentId: room.id, parentName: room.name })}><Plus className="size-3.5" />Pintu</Button>}
-                                </div>
-                              </div>
-                              <div className="mt-3 grid gap-2">
-                                {room.doors.length === 0 ? <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">Belum ada pintu.</p> : room.doors.map((door) => {
-                                  const device = door.devices[0];
-                                  return (
-                                    <div key={door.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md bg-muted/60 px-3 py-2.5">
-                                      <div className="flex min-w-0 items-center gap-2"><DoorOpen className="size-4 shrink-0 text-muted-foreground" /><div className="min-w-0"><p className="truncate text-sm font-medium">{door.name}</p><p className="truncate text-xs text-muted-foreground">{door.code ?? (device ? `Smart lock · ${device.connection_status}` : "Belum ada smart lock")}</p></div></div>
-                                      <div className="flex shrink-0 items-center gap-2">{device && <Badge variant={device.is_active ? "secondary" : "outline"}><Smartphone className="mr-1 size-3" />{device.is_active ? "Terhubung" : "Nonaktif"}</Badge>}{isAdmin && <Button size="icon-sm" variant="ghost" aria-label={door.is_active ? "Nonaktifkan pintu" : "Aktifkan pintu"} disabled={!door.is_active && !roomActive} onClick={() => updateDoor([door.id, { is_active: !door.is_active }])}><Power className="size-3.5" /></Button>}</div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {floor.rooms.length === 0 && <p className="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground md:col-span-2">Belum ada ruangan di lantai ini.</p>}
-                      </div>
-                    </section>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <LocationBrowser buildings={buildings} isAdmin={isAdmin} onCreate={setCreateDialog} onStatusChange={updateStatus} />
       )}
 
-      {isAdmin && <p className="mt-5 text-xs text-muted-foreground">Smart lock ditautkan ke pintu melalui halaman <Link to="/app/devices" className="font-medium underline underline-offset-4">Perangkat</Link>. Lokasi yang dinonaktifkan tidak tersedia untuk kunjungan baru.</p>}
+      {isAdmin && <p className="mt-5 text-xs text-muted-foreground">Smart lock ditautkan ke pintu melalui halaman <Link to="/app/devices" className="font-medium underline underline-offset-4">Perangkat</Link>. Lokasi nonaktif tidak tersedia untuk kunjungan baru.</p>}
       {createDialog && <CreateLocationDialog target={createDialog} onClose={() => setCreateDialog(null)} onSave={saveLocation} />}
     </>
   );
 }
-
-function CreateLocationDialog({ target, onClose, onSave }: { target: CreateDialogState; onClose: () => void; onSave: (values: LocationFormValues) => Promise<void> }) {
+function CreateLocationDialog({ target, onClose, onSave }: { target: CreateLocationTarget; onClose: () => void; onSave: (values: LocationFormValues) => Promise<void> }) {
   const [values, setValues] = useState<LocationFormValues>({ name: "", code: "", address: "", floor_number: "", description: "" });
   const [isSaving, setIsSaving] = useState(false);
   const kindLabel = target.kind === "building" ? "gedung" : target.kind === "floor" ? "lantai" : target.kind === "room" ? "ruangan" : "pintu";
@@ -197,7 +117,7 @@ function CreateLocationDialog({ target, onClose, onSave }: { target: CreateDialo
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-            <Button type="submit" disabled={isSaving}>{isSaving ? "Menyimpan…" : `Simpan ${kindLabel}`}</Button>
+            <Button type="submit" disabled={isSaving}>{isSaving ? "Menyimpan..." : `Simpan ${kindLabel}`}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
